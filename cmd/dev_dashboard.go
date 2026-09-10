@@ -1400,7 +1400,28 @@ let current = result;
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
   page.setDefaultTimeout(timeout);
-  page.on("console", message => { if (message.type() === "error") current.console_errors.push(diagnostic(message.text())); });
+  const rejectionPrefix = "denmother:unhandled-rejection:";
+  page.on("console", message => {
+    const text = message.text();
+    if (message.type() === "debug" && text.startsWith(rejectionPrefix)) current.page_errors.push(diagnostic(text.slice(rejectionPrefix.length)));
+    else if (message.type() === "error") current.console_errors.push(diagnostic(text));
+  });
+  await page.addInitScript(prefix => {
+    window.addEventListener("unhandledrejection", event => {
+      const reason = event.reason;
+      let message = String(reason);
+      if (reason && typeof reason === "object") {
+        const detail = {};
+        for (const key of ["name", "code", "message", "stack"]) {
+          if (typeof reason[key] === "string" || typeof reason[key] === "number") detail[key] = reason[key];
+        }
+        if (Object.keys(detail).length) message = JSON.stringify(detail);
+      }
+      // Playwright otherwise reduces rejected HA websocket objects to "Object".
+      console.debug(prefix + "Unhandled promise rejection: " + message);
+      event.preventDefault();
+    });
+  }, rejectionPrefix);
   page.on("pageerror", error => current.page_errors.push(diagnostic(error)));
   page.on("requestfailed", request => {
     const reason = request.failure()?.errorText || "";

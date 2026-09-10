@@ -148,7 +148,7 @@ acceptance still requires a corresponding host.
 
 ## Compatibility evidence
 
-The CI runtime matrix exercises pinned HA 2026.8.3 and 2026.9.0 images. Its native
+The CI runtime matrix exercises pinned HA 2026.9.0 and 2026.9.1 images. Its native
 archive matrix verifies checksums and runs the packaged CLI on Linux x86-64/ARM64,
 macOS x86-64/ARM64, and Windows x86-64. The Homebrew job separately exercises the
 generated formula. Save their artifacts and exact revision in the release record;

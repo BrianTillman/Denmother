@@ -26,7 +26,7 @@ var (
 )
 
 const (
-	devHomeAssistantImage = "ghcr.io/home-assistant/home-assistant:2026.9.0"
+	devHomeAssistantImage = "ghcr.io/home-assistant/home-assistant:2026.9.1"
 	devMatterServerImage  = "ghcr.io/matter-js/python-matter-server:8.1.2"
 	devUIProxyImage       = "nginx:1.29.8-alpine"
 )

@@ -63,6 +63,8 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 			content += "<img src='/missing-resource?token=synthetic-secret' />"
 		case strings.HasSuffix(r.URL.Path, "/page-error"):
 			content += "<img src='data:,' onerror='throw new Error(\"dashboard startup failed\")' />"
+		case strings.HasSuffix(r.URL.Path, "/rejected-object"):
+			content += "<img src='data:,' onerror='Promise.reject({code:\"fixture_failure\",message:\"request failed\",token:\"synthetic-secret\"})' />"
 		case strings.HasSuffix(r.URL.Path, "/empty"):
 			content = "<p>Lots of ordinary dashboard text, but no card.</p>"
 		case strings.HasSuffix(r.URL.Path, "/nested"):
@@ -95,6 +97,7 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 		{name: "all views", views: []string{"first", "second"}},
 		{name: "login preserves first requested view", views: []string{"first", "second"}, login: true},
 		{name: "first view page errors retained", views: []string{"page-error"}, fail: true, pageError: "dashboard startup failed"},
+		{name: "rejected object retains error code without credentials", views: []string{"rejected-object"}, fail: true, pageError: `"code":"fixture_failure"`},
 		{name: "nested shadow canvas card", views: []string{"nested"}, custom: []string{"nested-card"}},
 		{name: "delayed registration closed shadow card", views: []string{"delayed"}, custom: []string{"delayed-card"}},
 		{name: "incomplete onboarding", onboarding: true, fail: true},
