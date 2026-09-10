@@ -1,0 +1,23 @@
+# Dedicated development configuration: all devices and states are synthetic.
+homeassistant:
+  name: Denmother Dashboard Example
+  time_zone: UTC
+  unit_system: metric
+
+input_boolean:
+  study_lamp:
+    name: Study Lamp
+    initial: false
+
+lovelace:
+  resource_mode: yaml
+  resources:
+    - url: /local/denmother-status-card.js
+      type: module
+  dashboards:
+    denmother-demo:
+      mode: yaml
+      title: Denmother Demo
+      icon: mdi:flask-outline
+      show_in_sidebar: true
+      filename: dashboards/demo.yaml

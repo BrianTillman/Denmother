@@ -1,0 +1,47 @@
+version: 1
+name: Study motion turns on the lamp
+description: Exercise a real automation using two synthetic Home Assistant helpers.
+tags: [fast, example]
+config:
+  timeout: 5s
+  cleanup: true
+  auto_restore: true
+tests:
+  - name: Automation enablement is restored through its service
+    trace_skip_reason: This case checks cleanup of automation enablement; the next case verifies the restored automation runs.
+    trigger:
+      - service: automation.turn_off
+        target:
+          entity_id: automation.study_motion_lamp
+    assertions:
+      - entity_id: automation.study_motion_lamp
+        state: "off"
+        timeout: 2s
+  - name: Motion triggers the lamp action
+    setup:
+      - entity_id: input_boolean.study_motion
+        state: "off"
+      - entity_id: input_boolean.study_lamp
+        state: "off"
+    trigger:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.study_motion
+    assertions:
+      - entity_id: input_boolean.study_lamp
+        state: "on"
+        timeout: 5s
+    trace_assertions:
+      automation: automation.study_motion_lamp
+      expect_completed: true
+      expect_no_errors: true
+      expect_actions:
+        - service: input_boolean.turn_on
+          target: input_boolean.study_lamp
+    cleanup:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.study_motion
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.study_lamp

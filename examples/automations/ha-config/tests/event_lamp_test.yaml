@@ -1,0 +1,31 @@
+version: 1
+name: Event turns on a synthetic lamp
+tags: [example, event]
+config:
+  timeout: 8s
+  cleanup: true
+  auto_restore: true
+tests:
+  - name: Natural event trigger runs the lamp action
+    setup:
+      - entity_id: input_boolean.event_lamp
+        state: "off"
+    events:
+      - event_type: denmother_demo
+        data:
+          action: illuminate
+    assertions:
+      - entity_id: input_boolean.event_lamp
+        state: "on"
+        timeout: 8s
+    trace_assertions:
+      automation: automation.study_event_lamp
+      expect_completed: true
+      expect_no_errors: true
+      expect_actions:
+        - service: input_boolean.turn_on
+          target: input_boolean.event_lamp
+    cleanup:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.event_lamp

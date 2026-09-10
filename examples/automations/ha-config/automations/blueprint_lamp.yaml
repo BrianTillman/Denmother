@@ -1,0 +1,7 @@
+- id: study_blueprint_lamp
+  alias: Study Blueprint Lamp
+  use_blueprint:
+    path: denmother/helper_lamp.yaml
+    input:
+      motion_entity: input_boolean.blueprint_motion
+      lamp_entity: input_boolean.blueprint_lamp

@@ -1,0 +1,22 @@
+[
+  {
+    "run_id": "1711234567.123456",
+    "timestamp": {
+      "start": "2026-03-20T12:00:05.123456+00:00",
+      "finish": "2026-03-20T12:00:05.456789+00:00"
+    },
+    "state": "stopped",
+    "last_step": "action/0/choose/0/sequence/0",
+    "error": ""
+  },
+  {
+    "run_id": "1711234560.000000",
+    "timestamp": {
+      "start": "2026-03-20T11:59:50.000000+00:00",
+      "finish": "2026-03-20T11:59:50.500000+00:00"
+    },
+    "state": "stopped",
+    "last_step": "action/0/choose/1/sequence/0",
+    "error": ""
+  }
+]

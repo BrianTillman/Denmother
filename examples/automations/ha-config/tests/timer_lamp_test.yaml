@@ -1,0 +1,36 @@
+version: 1
+name: Timer turns on a synthetic lamp
+tags: [example, timer]
+config:
+  timeout: 8s
+  cleanup: true
+  auto_restore: true
+tests:
+  - name: Natural timer trigger runs the lamp action
+    setup:
+      - entity_id: input_boolean.timer_lamp
+        state: "off"
+    trigger:
+      - service: timer.start
+        target:
+          entity_id: timer.study_delay
+    assertions:
+      - entity_id: input_boolean.timer_lamp
+        state: "on"
+        timeout: 8s
+    trace_assertions:
+      attribution: fresh_unique
+      attribution_reason: timer.finished does not retain timer.start context; this test uses an isolated timer and automation.
+      automation: automation.study_timer_lamp
+      expect_completed: true
+      expect_no_errors: true
+      expect_actions:
+        - service: input_boolean.turn_on
+          target: input_boolean.timer_lamp
+    cleanup:
+      - service: timer.cancel
+        target:
+          entity_id: timer.study_delay
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.timer_lamp

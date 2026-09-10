@@ -1,0 +1,173 @@
+name: Denmother
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Scan source and history for secrets
+        run: |
+          go run github.com/zricethezav/gitleaks/v8@v8.24.3 dir . --redact
+          go run github.com/zricethezav/gitleaks/v8@v8.24.3 git . --redact --log-opts="--all"
+      - run: go build -o dm .
+      - run: test -z "$(gofmt -l cmd internal skills examples/embed.go scripts/embed.go evals/agent-adoption/mcpcompare main.go)"
+      - run: python3 scripts/check_public_source.py
+      - run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run --no-config --enable-only=govet,staticcheck,unused ./...
+      - run: ./dm release check --json
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - run: ./dm release build --version 0.1.0-rc.1 --homebrew-repository "$RELEASE_REPOSITORY" --json
+        env:
+          RELEASE_REPOSITORY: ${{ github.repository }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: packages
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+  homebrew:
+    needs: source
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: packages
+          path: dist/
+      - name: Install and test the generated formula against local release archives
+        shell: bash
+        run: |
+          brew tap-new --no-git denmother/ci
+          formula="$(brew --repository denmother/ci)/Formula/denmother.rb"
+          # Only the download location changes; retain platform selection and hashes.
+          sed -E 's|https://github.com/[^/]+/[^/]+/releases/download/[^/]+/|http://127.0.0.1:8765/|g' \
+            dist/homebrew/Formula/denmother.rb > "$formula"
+          ruby -c "$formula"
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory dist > "$RUNNER_TEMP/denmother-http.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/SHA256SUMS > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          brew install --formula denmother/ci/denmother
+          brew test denmother/ci/denmother
+          dm version
+  runtime-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        ha: ['2026.8.3', '2026.9.0']
+    env:
+      DM_DEV_HA_IMAGE: ghcr.io/home-assistant/home-assistant:${{ matrix.ha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go build -o dm .
+      - run: ./dm dev up --config examples/quickstart/ha-config --json
+      - run: ./dm --config examples/quickstart/ha-config
+      - run: ./dm test --config examples/quickstart/ha-config --json
+      - run: ./dm dev up --config examples/automations/ha-config --json
+      - run: ./dm --config examples/automations/ha-config --json
+      - run: ./dm test --config examples/automations/ha-config --json
+      - name: Verify native area targets and service cleanup
+        run: DENMOTHER_RUNTIME_TEST_CONFIG="$GITHUB_WORKSPACE/examples/automations/ha-config" go test -race -v ./internal/hatest -run '^TestNativeRuntimeTargetsAndCleanup$' -count=1
+      - name: Install dashboard browser and host libraries
+        run: npm exec --yes --package=playwright@1.61.1 -- playwright install --with-deps chromium
+      - name: Render every view of the isolated dashboard example
+        run: ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
+      - name: Verify saved storage dashboard lifecycle
+        run: DENMOTHER_TEST_STORAGE_CONFIG="$GITHUB_WORKSPACE/examples/dashboard/ha-config" go test ./cmd -run '^TestStorageDashboardLiveAcceptance$' -count=1
+      - name: Apply synthetic scenario and render selected view
+        run: |
+          ./dm dev scenario warm --config examples/dashboard/ha-config --json
+          ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --render --view details --require-running --json
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dashboard-render-${{ matrix.ha }}
+          path: |
+            examples/dashboard/artifacts/dashboard-render/**/*.png
+            examples/dashboard/artifacts/dashboard-render/**/*.json
+            !examples/dashboard/artifacts/dashboard-render/playwright-runner/**
+          if-no-files-found: ignore
+          retention-days: 7
+      - if: always()
+        run: ./dm dev down --config examples/dashboard/ha-config --json
+      - if: always()
+        run: ./dm dev down --config examples/automations/ha-config --json
+      - if: always()
+        run: ./dm dev down --config examples/quickstart/ha-config --json
+  platform-tests:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: packages
+          path: dist/
+      - name: Verify checksum and exercise the native release archive
+        shell: bash
+        run: python scripts/platform-acceptance.py --archive-dir dist --directory "$RUNNER_TEMP/denmother-platform"
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: platform-${{ matrix.os }}
+          path: ${{ runner.temp }}/denmother-platform/acceptance.json
+          if-no-files-found: error
+  runtime:
+    needs: runtime-tests
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every Home Assistant version
+        env:
+          RESULT: ${{ needs.runtime-tests.result }}
+        run: test "$RESULT" = success
+  platform:
+    needs: platform-tests
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every native platform
+        env:
+          RESULT: ${{ needs.platform-tests.result }}
+        run: test "$RESULT" = success

@@ -1,0 +1,35 @@
+{
+  "run_id": "1711234599.999999",
+  "state": "stopped",
+  "timestamp": {
+    "start": "2026-03-20T12:00:05.123456+00:00",
+    "finish": "2026-03-20T12:00:05.456789+00:00"
+  },
+  "trace": {
+    "trigger/0": [
+      {
+        "path": "trigger/0",
+        "timestamp": "2026-03-20T12:00:05.123456+00:00",
+        "changed_variables": {
+          "trigger": {
+            "id": "occupied",
+            "platform": "state"
+          }
+        }
+      }
+    ],
+    "action/0": [
+      {
+        "path": "action/0",
+        "timestamp": "2026-03-20T12:00:05.200000+00:00",
+        "error": "NoneType has no attribute 'state'"
+      }
+    ]
+  },
+  "context": {
+    "id": "01HXYZ999999",
+    "parent_id": null,
+    "user_id": null
+  },
+  "error": "NoneType has no attribute 'state'"
+}

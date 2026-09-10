@@ -1,0 +1,14 @@
+{
+  "schema_version": "dev_state_fixtures.v1",
+  "description": "Synthetic display data; no physical device or integration services.",
+  "entities": {
+    "sensor.study_temperature": {
+      "state": "21.5",
+      "attributes": {
+        "friendly_name": "Study Temperature",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature"
+      }
+    }
+  }
+}

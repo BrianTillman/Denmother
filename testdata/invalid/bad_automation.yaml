@@ -1,0 +1,6 @@
+# Has alias but missing trigger
+alias: Bad Automation
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.office

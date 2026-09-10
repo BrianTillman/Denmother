@@ -1,0 +1,24 @@
+title: Denmother Demo
+views:
+  - title: Overview
+    path: overview
+    cards:
+      - type: entities
+        title: Synthetic Study
+        entities:
+          - input_boolean.study_lamp
+          - sensor.study_temperature
+      - type: custom:denmother-status-card
+        entity: sensor.study_temperature
+  - title: Details
+    path: details
+    cards:
+      - type: gauge
+        entity: sensor.study_temperature
+        name: Study Temperature
+        min: 0
+        max: 40
+      - type: markdown
+        content: |
+          All values in this dashboard are synthetic.
+          Run the **warm** scenario to change the display temperature.

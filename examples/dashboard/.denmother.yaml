@@ -1,0 +1,4 @@
+version: 1
+config_dir: ha-config
+dev_fixtures: fixtures.json
+dev_scenarios: scenarios.json

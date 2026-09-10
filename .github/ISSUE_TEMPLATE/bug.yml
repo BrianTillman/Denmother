@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a reproducible failure using synthetic data.
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Versions
+      description: Denmother version, OS, Go or package version, HA version, Docker/Compose if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Exact command, synthetic YAML, expected behavior, actual behavior, and redacted output. Never include tokens or home exports.
+    validations:
+      required: true

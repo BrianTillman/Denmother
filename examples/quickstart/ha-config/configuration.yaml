@@ -1,0 +1,15 @@
+# Synthetic helpers: no physical devices or personal configuration required.
+homeassistant:
+  name: Denmother Example
+  time_zone: UTC
+  unit_system: metric
+
+input_boolean:
+  study_motion:
+    name: Study Motion
+    initial: false
+  study_lamp:
+    name: Study Lamp
+    initial: false
+
+automation: !include_dir_merge_list automations/

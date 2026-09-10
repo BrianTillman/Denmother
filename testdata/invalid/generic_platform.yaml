@@ -1,0 +1,4 @@
+camera:
+  - platform: generic
+    name: Front Camera
+    still_image_url: http://example.com/camera.jpg

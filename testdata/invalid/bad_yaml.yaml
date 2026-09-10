@@ -1,0 +1,3 @@
+homeassistant:
+name: Test Home  # Misindented: name should be nested under homeassistant.
+  unit_system: imperial

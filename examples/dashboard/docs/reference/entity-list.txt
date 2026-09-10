@@ -1,0 +1,3 @@
+# Synthetic dashboard example entities
+input_boolean.study_lamp
+sensor.study_temperature

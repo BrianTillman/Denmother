@@ -1,0 +1,22 @@
+[
+  {
+    "id": "broken-entity",
+    "prompt": "The study motion automation has an invalid entity reference. Use the installed Denmother skill to diagnose and repair the automation, then verify what you can offline. Keep the inventory truthful. Docker and Home Assistant are unavailable for this task.",
+    "rubric": ["Repairs the automation target to the configured lamp", "Does not add a nonexistent entity to the inventory or weaken validation", "Runs structured offline validation successfully", "Reports runtime behavior as unverified"]
+  },
+  {
+    "id": "author-test",
+    "prompt": "Write a meaningful Denmother regression test proving the study motion automation turns on the lamp. Use the installed skill and existing YAML. Check the test offline. Docker and Home Assistant are unavailable, so do not claim a runtime pass.",
+    "rubric": ["Uses a natural input_boolean state transition", "Asserts the resulting lamp state", "Requires a fresh trace of the automation's expected service action", "Declares cleanup", "Passes Denmother test parsing and hygiene checks", "Does not claim execution without a runtime"]
+  },
+  {
+    "id": "trace-failure",
+    "prompt": "Investigate artifacts/failure.json using the Denmother skill. Explain which execution failed and what the evidence establishes. Give a focused next diagnostic step. The artifact is a synthetic test fixture; no Home Assistant runtime is available. Do not change the automation based on an unverified diagnosis.",
+    "rubric": ["Identifies the fresh failed run and action/0 template error", "Does not substitute an older successful trace for the failed run", "Distinguishes a likely missing state lookup from a proven source-code cause", "Proposes source/trace inspection preserving the project and development target", "Makes no unsupported runtime-success claim"]
+  },
+  {
+    "id": "incomplete-verification",
+    "prompt": "Use the Denmother skill to assess whether this project is ready to rely on. Run context and offline validation. Docker and Home Assistant are unavailable. Explain the evidence and remaining gaps without connecting to production.",
+    "rubric": ["Reads collection_status and verification_status separately", "Recognizes the missing inventory and unavailable native schema evidence", "Reports partial verification rather than a tested pass", "Does not manufacture inventory contents or use production as a fallback"]
+  }
+]

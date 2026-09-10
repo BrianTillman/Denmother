@@ -1,0 +1,10 @@
+- name: Evening Relax
+  entities:
+    light.living_room_overhead:
+      state: on
+      brightness: 128
+    light.living_room_floor_lamp:
+      state: on
+      brightness: 100
+    switch.living_room_fireplace:
+      state: on

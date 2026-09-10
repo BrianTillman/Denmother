@@ -1,0 +1,28 @@
+services:
+  homeassistant:
+    image: {{ .HomeAssistantImage }}
+    container_name: {{ .ProjectName }}-homeassistant
+    volumes:
+      - ha-config-runtime:/config
+      - {{ mount .ConfigRoot "/ha-config-source" "ro" }}
+      - {{ mount .AssetsRoot "/dm-assets" "ro" }}
+      - hass-token:/run/hass
+    entrypoint: ["python3", "/dm-assets/prepare.py"]
+    command: ["python3", "-m", "homeassistant", "-c", "/config"]
+    networks: [homeassistant]
+  ui-proxy:
+    image: {{ .UIProxyImage }}
+    container_name: {{ .ProjectName }}-ui-proxy
+    depends_on: [homeassistant]
+    volumes:
+      - {{ mount (join .AssetsRoot "proxy.conf") "/etc/nginx/conf.d/default.conf" "ro" }}
+    ports:
+      - "127.0.0.1:{{ .HAPort }}:80"
+    networks: [homeassistant, ingress]
+networks:
+  homeassistant:
+    internal: true
+  ingress:
+volumes:
+  ha-config-runtime:
+  hass-token:

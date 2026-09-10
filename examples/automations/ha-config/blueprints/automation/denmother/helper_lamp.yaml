@@ -1,0 +1,25 @@
+blueprint:
+  name: Denmother helper motion lamp
+  description: A synthetic helper transition switches on another helper.
+  domain: automation
+  input:
+    motion_entity:
+      name: Motion helper
+      selector:
+        entity:
+          domain: input_boolean
+    lamp_entity:
+      name: Lamp helper
+      selector:
+        entity:
+          domain: input_boolean
+mode: single
+triggers:
+  - trigger: state
+    entity_id: !input motion_entity
+    from: "off"
+    to: "on"
+actions:
+  - action: input_boolean.turn_on
+    target:
+      entity_id: !input lamp_entity

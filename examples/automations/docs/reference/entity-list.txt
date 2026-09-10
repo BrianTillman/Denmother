@@ -1,0 +1,8 @@
+automation.study_timer_lamp
+automation.study_event_lamp
+automation.study_blueprint_lamp
+input_boolean.timer_lamp
+input_boolean.event_lamp
+input_boolean.blueprint_motion
+input_boolean.blueprint_lamp
+timer.study_delay

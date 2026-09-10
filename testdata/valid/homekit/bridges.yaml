@@ -1,0 +1,14 @@
+- name: Bridge 1
+  port: 21063
+  filter:
+    include_entities:
+      - light.office_overhead
+      - light.office_floor_lamp
+      - fan.office_ceiling_fan
+
+- name: Bridge 2
+  port: 21064
+  filter:
+    include_entities:
+      - light.living_room_overhead
+      - light.living_room_floor_lamp

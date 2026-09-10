@@ -1,0 +1,12 @@
+- id: study_event_lamp
+  alias: Study Event Lamp
+  mode: single
+  triggers:
+    - trigger: event
+      event_type: denmother_demo
+      event_data:
+        action: illuminate
+  actions:
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.event_lamp

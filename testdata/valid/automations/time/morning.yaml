@@ -1,0 +1,14 @@
+alias: Morning Routine - Turn on kitchen lights
+id: morning_routine_kitchen
+mode: single
+trigger:
+  - platform: time
+    at: "06:30:00"
+condition:
+  - condition: state
+    entity_id: binary_sensor.kitchen_occupancy
+    state: "on"
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.kitchen_overhead

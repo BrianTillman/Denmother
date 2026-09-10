@@ -1,0 +1,41 @@
+/dm
+/dist/
+**/artifacts/
+**/.devcontainer/worktrees/
+.env
+.env.*
+*.test
+coverage.out
+
+# Local tooling and private Home Assistant data
+/.*
+!/.github/
+!/.gitignore
+!/.denmother.yaml
+secrets.yaml
+secrets.yml
+*.pem
+*.key
+**/.storage/
+**/credentials.json
+**/token.env
+/docs/reference/
+*.log
+.DS_Store
+
+# Generated dashboard captures and live-state fixtures
+artifacts/
+**/dev-state-fixtures.json
+node_modules/
+
+# Local evaluation records; not part of the public source
+/evals/agent-adoption/results.md
+/evals/agent-adoption/mcp-results.md
+/evals/agent-adoption/mcp-results.json
+
+# Workstation verification notes; reusable release checks live in docs/releasing.md
+/docs/release-verification.md
+
+# Python acceptance tooling
+__pycache__/
+*.py[cod]

@@ -1,0 +1,20 @@
+{
+  "cool": {
+    "description": "Display a cool study.",
+    "states": {
+      "sensor.study_temperature": {
+        "state": "18",
+        "attributes": {"friendly_name": "Study Temperature", "unit_of_measurement": "°C", "device_class": "temperature"}
+      }
+    }
+  },
+  "warm": {
+    "description": "Display a warm study.",
+    "states": {
+      "sensor.study_temperature": {
+        "state": "28",
+        "attributes": {"friendly_name": "Study Temperature", "unit_of_measurement": "°C", "device_class": "temperature"}
+      }
+    }
+  }
+}

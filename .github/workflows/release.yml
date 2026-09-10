@@ -1,0 +1,90 @@
+name: Publish release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]
+      - run: go build -o dm .
+      - run: python3 scripts/check_public_source.py
+      - run: go run github.com/zricethezav/gitleaks/v8@v8.24.3 dir . --redact
+      - run: go run github.com/zricethezav/gitleaks/v8@v8.24.3 git . --redact --log-opts="--all"
+      - run: ./dm release check --json
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - run: ./dm dev up --config examples/quickstart/ha-config --json
+      - run: ./dm --config examples/quickstart/ha-config --json
+      - run: ./dm test --config examples/quickstart/ha-config --json
+      - run: ./dm dev up --config examples/automations/ha-config --json
+      - run: ./dm --config examples/automations/ha-config --json
+      - run: ./dm test --config examples/automations/ha-config --json
+      - name: Verify native area targets and service cleanup
+        run: DENMOTHER_RUNTIME_TEST_CONFIG="$GITHUB_WORKSPACE/examples/automations/ha-config" go test -race -v ./internal/hatest -run '^TestNativeRuntimeTargetsAndCleanup$' -count=1
+      - name: Install dashboard browser and host libraries
+        run: npm exec --yes --package=playwright@1.61.1 -- playwright install --with-deps chromium
+      - name: Verify dashboard views and scenario
+        run: |
+          ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
+          ./dm dev scenario warm --config examples/dashboard/ha-config --json
+          ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --render --view details --require-running --json
+      - name: Verify saved storage dashboard lifecycle
+        run: DENMOTHER_TEST_STORAGE_CONFIG="$GITHUB_WORKSPACE/examples/dashboard/ha-config" go test ./cmd -run '^TestStorageDashboardLiveAcceptance$' -count=1
+      - name: Package release and skill
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: ./dm release build --version "${RELEASE_TAG#v}" --homebrew-repository "$RELEASE_REPOSITORY" --json
+      - name: Verify installation outside the checkout
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          export HOME="$RUNNER_TEMP/dm-install-home"
+          export CODEX_HOME="$HOME/.codex"
+          export CLAUDE_CONFIG_DIR="$HOME/.claude"
+          export PATH="$RUNNER_TEMP/dm-bin:$PATH"
+          ./setup --version "${RELEASE_TAG#v}" --archive-dir dist --bin-dir "$RUNNER_TEMP/dm-bin" --harness codex,claude --offline --json
+          dm skills status --harness codex,claude --json
+          "$RUNNER_TEMP/dm-bin/dm" init --directory "$RUNNER_TEMP/dm-example" --agent --skill --json
+          "$RUNNER_TEMP/dm-bin/dm" --config "$RUNNER_TEMP/dm-example/ha-config" --no-schema --json
+      - name: Publish matching archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" --verify-tag --title "Denmother ${RELEASE_TAG#v}" --generate-notes "${flags[@]}" dist/*.tar.gz dist/SHA256SUMS dist/homebrew/Formula/denmother.rb
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-dashboard-evidence
+          path: |
+            examples/dashboard/artifacts/dashboard-render/**/*.png
+            examples/dashboard/artifacts/dashboard-render/**/*.json
+            !examples/dashboard/artifacts/dashboard-render/playwright-runner/**
+          if-no-files-found: ignore
+      - if: always()
+        run: ./dm dev down --config examples/dashboard/ha-config --json
+      - if: always()
+        run: ./dm dev down --config examples/automations/ha-config --json
+      - if: always()
+        run: ./dm dev down --config examples/quickstart/ha-config --json

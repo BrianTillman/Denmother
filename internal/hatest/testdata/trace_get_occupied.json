@@ -1,0 +1,64 @@
+{
+  "run_id": "1711234567.123456",
+  "state": "stopped",
+  "timestamp": {
+    "start": "2026-03-20T12:00:05.123456+00:00",
+    "finish": "2026-03-20T12:00:05.456789+00:00"
+  },
+  "script_execution": "finished",
+  "trace": {
+    "trigger/0": [
+      {
+        "path": "trigger/0",
+        "timestamp": "2026-03-20T12:00:05.123456+00:00",
+        "changed_variables": {
+          "trigger": {
+            "id": "occupied",
+            "platform": "state",
+            "entity_id": "binary_sensor.office_bay_window_dimmer_occupancy",
+            "from_state": {
+              "state": "off"
+            },
+            "to_state": {
+              "state": "on"
+            }
+          }
+        }
+      }
+    ],
+    "action/0": [
+      {
+        "path": "action/0",
+        "timestamp": "2026-03-20T12:00:05.200000+00:00"
+      }
+    ],
+    "action/0/choose/0": [
+      {
+        "path": "action/0/choose/0",
+        "timestamp": "2026-03-20T12:00:05.210000+00:00"
+      }
+    ],
+    "action/0/choose/0/sequence/0": [
+      {
+        "path": "action/0/choose/0/sequence/0",
+        "timestamp": "2026-03-20T12:00:05.220000+00:00",
+        "result": {
+          "params": {
+            "domain": "light",
+            "service": "turn_on",
+            "service_data": {
+              "entity_id": "light.office_lights_all",
+              "brightness_pct": 50
+            }
+          }
+        }
+      }
+    ]
+  },
+  "context": {
+    "id": "01HXYZ123456",
+    "parent_id": null,
+    "user_id": null
+  },
+  "error": ""
+}

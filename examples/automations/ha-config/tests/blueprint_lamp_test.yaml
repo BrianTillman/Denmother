@@ -1,0 +1,36 @@
+version: 1
+name: Blueprint turns on a synthetic lamp
+tags: [example, blueprint]
+config:
+  timeout: 8s
+  cleanup: true
+  auto_restore: true
+tests:
+  - name: Natural blueprint trigger runs the lamp action
+    setup:
+      - entity_id: input_boolean.blueprint_lamp
+        state: "off"
+      - entity_id: input_boolean.blueprint_motion
+        state: "off"
+    trigger:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.blueprint_motion
+    assertions:
+      - entity_id: input_boolean.blueprint_lamp
+        state: "on"
+        timeout: 8s
+    trace_assertions:
+      automation: automation.study_blueprint_lamp
+      expect_completed: true
+      expect_no_errors: true
+      expect_actions:
+        - service: input_boolean.turn_on
+          target: input_boolean.blueprint_lamp
+    cleanup:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.blueprint_motion
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.blueprint_lamp

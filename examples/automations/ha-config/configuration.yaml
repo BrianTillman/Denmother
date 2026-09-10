@@ -1,0 +1,26 @@
+# Isolated timer, event, and blueprint examples; no physical devices.
+homeassistant:
+  name: Denmother Automation Examples
+  time_zone: UTC
+  unit_system: metric
+recorder:
+logbook:
+input_boolean:
+  timer_lamp:
+    initial: false
+  event_lamp:
+    initial: false
+  blueprint_motion:
+    initial: false
+  blueprint_lamp:
+    initial: false
+timer:
+  study_delay:
+    duration: "00:00:01"
+automation: !include_dir_merge_list automations/
+
+# Enable storage-backed synthetic helpers for runtime acceptance.
+input_number: {}
+input_select: {}
+input_text: {}
+counter: {}

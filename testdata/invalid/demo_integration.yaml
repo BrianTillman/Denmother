@@ -1,0 +1,8 @@
+homeassistant:
+  name: Test Home
+
+demo:
+
+light:
+  - platform: demo
+    name: Demo Light

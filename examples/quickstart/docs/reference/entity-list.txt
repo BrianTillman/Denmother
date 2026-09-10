@@ -1,0 +1,4 @@
+# Synthetic entity inventory for the quickstart; no live export required.
+automation.study_motion_lamp
+input_boolean.study_lamp
+input_boolean.study_motion
