@@ -1380,6 +1380,7 @@ const password = process.env.HA_PASSWORD;
 const screenshotPath = process.env.SCREENSHOT_PATH;
 const resultPath = process.env.RESULT_PATH;
 const viewPaths = JSON.parse(process.env.VIEW_PATHS || '["0"]');
+const viewURLFor = path => url.replace(/\/[^/]*$/, "/" + encodeURIComponent(path));
 const customCards = JSON.parse(process.env.CUSTOM_CARDS || '[]');
 const timeout = Number(process.env.RENDER_TIMEOUT_MS || "90000");
 const redactDiagnostic = value => String(value).split(password || "\0").join("[redacted]").replace(/https?:\/\/[^\s"'<>]+/g, text => {
@@ -1409,7 +1410,7 @@ let current = result;
     if (response.status() >= 400) current.request_failures.push("HTTP " + response.status() + " " + diagnostic(response.url()));
   });
   // DOM readiness does not require streaming integrations to become network-idle.
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout });
+  await page.goto(viewPaths?.length ? viewURLFor(viewPaths[0]) : url, { waitUntil: "domcontentloaded", timeout });
   await Promise.race([
     page.locator("home-assistant-main").waitFor({state:"attached"}),
     page.locator("input[name='username']").first().waitFor({state:"visible"})
@@ -1428,11 +1429,13 @@ let current = result;
     await page.locator("home-assistant-main").waitFor({state:"attached"});
   }
   for (let index = 0; index < viewPaths.length; index++) {
-    const viewURL = url.replace(/\/[^/]*$/, "/" + encodeURIComponent(viewPaths[index]));
+    const viewURL = viewURLFor(viewPaths[index]);
     current = { url: viewURL, screenshot: screenshotPath.replace(/\.png$/, "-" + index + ".png"), console_errors: [], request_failures: [], page_errors: [], visible_errors: [], card_count: 0 };
     result.views.push(current);
     try {
-      await page.goto(viewURL, { waitUntil: "domcontentloaded", timeout });
+      // Login already opened the first requested view. Reloading as soon as
+      // home-assistant-main attaches can interrupt HA's pending startup requests.
+      if (index > 0) await page.goto(viewURL, { waitUntil: "domcontentloaded", timeout });
       await page.locator("hui-root").waitFor({state:"attached"});
       await page.waitForFunction(expected => {
         const visit = root => Array.from(root.querySelectorAll("*")).some(node =>

@@ -1,0 +1,5 @@
+{
+  "home_assistant": ["2026.8.3", "2026.9.0"],
+  "storage_repetitions": 5,
+  "homebrew_image": "homebrew/brew@sha256:b0072bfdebf5934ae24b93b44a1928a88057399b3283ffa0177bb86084fdedfd"
+}

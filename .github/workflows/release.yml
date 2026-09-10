@@ -38,15 +38,15 @@ jobs:
       - run: ./dm test --config examples/automations/ha-config --json
       - name: Verify native area targets and service cleanup
         run: DENMOTHER_RUNTIME_TEST_CONFIG="$GITHUB_WORKSPACE/examples/automations/ha-config" go test -race -v ./internal/hatest -run '^TestNativeRuntimeTargetsAndCleanup$' -count=1
-      - name: Install dashboard browser and host libraries
-        run: npm exec --yes --package=playwright@1.61.1 -- playwright install --with-deps chromium
+      - name: Install browser and run required Chromium regressions
+        run: python3 scripts/acceptance.py browser --with-deps
       - name: Verify dashboard views and scenario
         run: |
           ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
           ./dm dev scenario warm --config examples/dashboard/ha-config --json
           ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --render --view details --require-running --json
       - name: Verify saved storage dashboard lifecycle
-        run: DENMOTHER_TEST_STORAGE_CONFIG="$GITHUB_WORKSPACE/examples/dashboard/ha-config" go test ./cmd -run '^TestStorageDashboardLiveAcceptance$' -count=1
+        run: python3 scripts/acceptance.py storage --config examples/dashboard/ha-config
       - name: Package release and skill
         env:
           RELEASE_TAG: ${{ github.ref_name }}

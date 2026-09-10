@@ -79,6 +79,7 @@ func runReleaseCheck(cmd *cobra.Command, args []string) error {
 		{"vet", "go", []string{"vet", "./..."}},
 		{"bootstrap", python, []string{"-B", "-m", "unittest", "discover", "-s", "scripts", "-p", "bootstrap_test.py"}},
 		{"public-source", python, []string{"-B", "-m", "unittest", "discover", "-s", "scripts", "-p", "public_source_test.py"}},
+		{"precommit", python, []string{"-B", "-m", "unittest", "discover", "-s", "scripts", "-p", "precommit_test.py"}},
 		{"evaluation-recorder", python, []string{"-B", "-m", "unittest", "discover", "-s", "evals/agent-adoption", "-p", "record_test.py"}},
 	} {
 		command := exec.CommandContext(cmd.Context(), check.program, check.args...)
