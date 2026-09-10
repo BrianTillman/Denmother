@@ -1412,12 +1412,14 @@ let current = result;
     });
     socket.on("framereceived", frame => {
       try {
-        const message = JSON.parse(String(frame.payload));
-        if (message.type !== "result") return;
-        if (message.success === false) {
-          (result.websocket_errors ||= []).push(diagnostic((commands.get(message.id) || "unknown") + ": " + JSON.stringify(message.error)));
+        const payload = JSON.parse(String(frame.payload));
+        for (const message of Array.isArray(payload) ? payload : [payload]) {
+          if (message.type !== "result") continue;
+          if (message.success === false) {
+            (result.websocket_errors ||= []).push(diagnostic((commands.get(message.id) || "unknown") + ": " + JSON.stringify(message.error)));
+          }
+          commands.delete(message.id);
         }
-        commands.delete(message.id);
       } catch {}
     });
   });

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // Run with DENMOTHER_TEST_PLAYWRIGHT_DIR pointing at a prepared runner directory.
@@ -40,6 +42,22 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 			}
 		}
 		switch r.URL.Path {
+		case "/test-websocket":
+			upgrader := websocket.Upgrader{}
+			connection, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				return
+			}
+			defer connection.Close()
+			var request map[string]any
+			if connection.ReadJSON(&request) == nil {
+				_ = connection.WriteJSON([]any{map[string]any{"id": request["id"], "type": "result", "success": false,
+					"error": map[string]any{"code": "fixture_failure", "message": "https://ha.example/request?token=synthetic-secret"}}})
+			}
+			return
+		case "/test-dashboard/0":
+			_, _ = w.Write([]byte(`<home-assistant-main></home-assistant-main><script>throw new Error("Unrequested default view must not load")</script>`))
+			return
 		case "/incomplete-onboarding/0":
 			http.Redirect(w, r, "/auth/login", http.StatusFound)
 			return
@@ -82,6 +100,13 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
   customElements.define('nested-card',class extends HTMLElement {connectedCallback(){this.attachShadow({mode:'open'}).innerHTML='<section><canvas width="200" height="100"></canvas></section>';}});
   setTimeout(()=>customElements.define('delayed-card',class extends HTMLElement {connectedCallback(){this.attachShadow({mode:'closed'}).innerHTML='<canvas width="200" height="100"></canvas>';}}),1200);
   document.querySelector('hui-root').attachShadow({mode:'open'}).innerHTML=%s;
+  if (location.pathname.endsWith('/object-rejection') || location.pathname.endsWith('/handled-rejection')) {
+    const socket = new WebSocket(location.origin.replace('http:', 'ws:') + '/test-websocket');
+    socket.onopen = () => socket.send(JSON.stringify({id:1,type:'fixture/command'}));
+    socket.onmessage = event => {
+      if (location.pathname.endsWith('/object-rejection')) Promise.reject(JSON.parse(event.data)[0].error);
+    };
+  }
   </script></body></html>`, encoded)
 	}))
 	defer server.Close()
@@ -102,6 +127,8 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 		{name: "delayed registration closed shadow card", views: []string{"delayed"}, custom: []string{"delayed-card"}},
 		{name: "incomplete onboarding", onboarding: true, fail: true},
 		{name: "failed resource token redaction", views: []string{"failed-resource"}, fail: true},
+		{name: "object rejection details", views: []string{"object-rejection"}, fail: true},
+		{name: "handled websocket rejection", views: []string{"handled-rejection"}},
 		{name: "custom-only and informational alert", views: []string{"custom"}, custom: []string{"synthetic-card"}},
 		{name: "second view error", views: []string{"first", "broken"}, fail: true},
 		{name: "empty view", views: []string{"empty"}, fail: true},
@@ -156,6 +183,12 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 			}
 			if len(result.Views) != len(tc.views) {
 				t.Fatalf("rendered %d views, want %d: %+v", len(result.Views), len(tc.views), result)
+			}
+			if tc.name == "object rejection details" && !strings.Contains(strings.Join(result.PageErrors, " "), "fixture_failure") {
+				t.Fatalf("promise rejection details were lost: %+v", result)
+			}
+			if (tc.name == "object rejection details" || tc.name == "handled websocket rejection") && !strings.Contains(strings.Join(result.WebSocketErrors, " "), "fixture/command") {
+				t.Fatalf("WebSocket command context was lost: %+v", result)
 			}
 			problems := len(result.PageErrors) + len(result.ConsoleErrors) + len(result.VisibleErrors) + len(result.RequestFailures)
 			if (problems > 0) != tc.fail {
