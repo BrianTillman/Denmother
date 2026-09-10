@@ -107,6 +107,7 @@ type dashboardRenderCheck struct {
 	ConsoleErrors   []string               `json:"console_errors,omitempty"`
 	RequestFailures []string               `json:"request_failures,omitempty"`
 	PageErrors      []string               `json:"page_errors,omitempty"`
+	WebSocketErrors []string               `json:"websocket_errors,omitempty"`
 	VisibleErrors   []string               `json:"visible_errors,omitempty"`
 	CardCount       int                    `json:"card_count"`
 	Views           []dashboardRenderCheck `json:"views,omitempty"`
@@ -1399,6 +1400,27 @@ let current = result;
   if (!username || !password) throw new Error("Dashboard login credentials are required");
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+  // Include backend command failures as context; HA may handle these normally,
+  // so they do not by themselves make a render fail.
+  page.on("websocket", socket => {
+    const commands = new Map();
+    socket.on("framesent", frame => {
+      try {
+        const message = JSON.parse(String(frame.payload));
+        if (message.id && message.type) commands.set(message.id, message.type);
+      } catch {}
+    });
+    socket.on("framereceived", frame => {
+      try {
+        const message = JSON.parse(String(frame.payload));
+        if (message.type !== "result") return;
+        if (message.success === false) {
+          (result.websocket_errors ||= []).push(diagnostic((commands.get(message.id) || "unknown") + ": " + JSON.stringify(message.error)));
+        }
+        commands.delete(message.id);
+      } catch {}
+    });
+  });
   page.setDefaultTimeout(timeout);
   const rejectionPrefix = "denmother:unhandled-rejection:";
   page.on("console", message => {
