@@ -1,0 +1,45 @@
+{
+  "name": "Denmother contributors",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2.5.9": {
+      "username": "vscode",
+      "installZsh": false,
+      "installOhMyZsh": false,
+      "upgradePackages": false
+    },
+    "ghcr.io/devcontainers/features/node:2.1.0": {
+      "version": "24",
+      "nodeGypDependencies": false,
+      "pnpmVersion": "none"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:4.1.0": {
+      "dockerDashComposeVersion": "v2"
+    }
+  },
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "GOPATH": "/home/vscode/go",
+    "GOCACHE": "/home/vscode/.cache/go-build"
+  },
+  "remoteEnv": {
+    "PATH": "/home/vscode/go/bin:${containerEnv:PATH}"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "portsAttributes": {
+    "8200-8699": {
+      "label": "Denmother development Home Assistant",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.Go", "redhat.vscode-yaml"],
+      "settings": {
+        "remote.localPortHost": "localhost"
+      }
+    }
+  }
+}

@@ -42,6 +42,25 @@ jobs:
           path: dist/
           retention-days: 7
           if-no-files-found: error
+  devcontainer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build and start the contributor devcontainer
+        id: devcontainer
+        run: npx --yes @devcontainers/cli@0.89.0 up --workspace-folder . --frozen-lockfile
+      - name: Run contributor checks and live Home Assistant smoke
+        run: npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . bash .devcontainer/smoke.sh
+      - name: Install the optional browser and render the dashboard example
+        run: |
+          npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . bash .devcontainer/install-browser.sh
+          npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
+      - name: Stop the dashboard runtime
+        if: always() && steps.devcontainer.outcome == 'success'
+        run: npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . ./dm dev down --config examples/dashboard/ha-config --json
   homebrew:
     needs: source
     runs-on: macos-latest

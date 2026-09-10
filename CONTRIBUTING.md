@@ -18,6 +18,62 @@ a small regression fixture for an unsupported YAML shape, or an example showing
 how to test a common automation. For larger features, discuss the intended user
 workflow in an issue before building it.
 
+### Optional devcontainer
+
+With Docker running and VS Code's Dev Containers extension installed, open this
+checkout and run **Dev Containers: Reopen in Container**. The checked-in
+[configuration](.devcontainer/devcontainer.json) supplies Go matching `go.mod`,
+Python 3, Bash, Git, OpenSSL, Node.js 24, npm, and Docker Compose v2. Initial setup
+downloads Go modules and builds `./dm`; it does not install Denmother into your
+host account. Rebuild the container after changing its definition. When updating
+`go.mod`'s Go version, also update the [Dockerfile](.devcontainer/Dockerfile);
+startup checks that they match. Feature versions and digests are recorded in
+[devcontainer-lock.json](.devcontainer/devcontainer-lock.json). After changing
+features, regenerate it with `npx --yes @devcontainers/cli@0.89.0 build --workspace-folder .`
+on the host and commit the updated lockfile; CI enforces it with `--frozen-lockfile`.
+
+The container uses a dedicated Docker-in-Docker daemon. This makes checkout and
+temporary-directory mounts work at their container paths and keeps HA's
+`localhost` URL reachable from `dm` and Playwright. The Docker feature requires
+a privileged development container, so use a host that permits it. Its Docker
+images and runtime volumes are stored in separate named volumes, with an initial
+download cost; the host's Docker image cache is not shared. See the
+[Docker-in-Docker documentation](https://code.visualstudio.com/remote/advancedcontainers/use-docker-kubernetes).
+Leave `DM_DEV_HOST_REPO_ROOT` unset in this environment.
+
+Inside the container, run the baseline below or run this complete smoke check:
+
+```sh
+bash .devcontainer/smoke.sh
+```
+
+It runs the baseline, starts a temporary synthetic quickstart, validates and tests
+it against live HA, verifies an intentional missing-entity failure, and removes
+that temporary runtime and its volumes on exit. To explore interactively, use the
+README quickstart commands with `./dm` in place of `dm`. In VS Code's **Ports** panel,
+forward the port printed by `./dm dev up` (normally 8200–8699), then open the
+forwarded local URL. Keep the port
+private in Codespaces. Port numbers depend on the selected project path.
+
+For dashboard work, install Chromium and its system libraries on demand:
+
+```sh
+bash .devcontainer/install-browser.sh
+./dm dev dashboard denmother-demo --config examples/dashboard/ha-config \
+  --ensure-dev --render --json
+./dm dev down --config examples/dashboard/ha-config --json
+```
+
+The installer reads Denmother's pinned Playwright version and uses the container's
+sudo access for browser libraries. Run it again after rebuilding the container or
+updating Playwright. CI builds this devcontainer and runs the smoke check and a
+dashboard render. Native platform and installer acceptance remain covered by the
+existing platform jobs. Generated `.devcontainer/worktrees/` files remain ignored.
+Stop interactive runtimes with `./dm dev down --config PATH` when finished; their
+state persists until explicitly reset or the nested Docker volumes are removed.
+
+### Native setup and baseline checks
+
 Use the Go version in [go.mod](go.mod). Most unit tests use synthetic fixtures
 and local mock servers; Docker Compose v2 is needed for live HA acceptance.
 Install the repository's pre-commit hook once per clone:

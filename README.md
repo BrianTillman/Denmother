@@ -63,7 +63,8 @@ An unpacked release uses `./setup`. See [installation options](docs/installing.m
 for local archives, pinned downloads when published, offline inputs, dry runs,
 upgrades, and Homebrew skill registration. See [compatibility](docs/compatibility.md)
 for platform and live harness verification limits. Contributors can build a
-checkout-local binary without installing it using [the contributor guide](CONTRIBUTING.md).
+checkout-local binary without installing it using [the contributor guide](CONTRIBUTING.md),
+which also provides an [optional devcontainer](CONTRIBUTING.md#optional-devcontainer).
 
 ## Quickstart
 
