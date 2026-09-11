@@ -7,7 +7,11 @@ Homebrew formula uses those same archives.
 
 ## Verify and build
 
-Run from the repository root with the pinned Go toolchain and Python 3.12+.
+Run from the repository root with the pinned Go toolchain and Python 3.12+ with
+PyYAML. `python3 -B scripts/acceptance.py preflight --with-deps` runs the shared
+local source, browser, fresh HA matrix, packaging, and Linux Homebrew gates.
+Its per-check report distinguishes passed, failed, blocked, and unrun checks;
+native platform coverage and the additional security scans below remain CI gates.
 `release check` includes the bootstrap and concurrent evaluation-recorder Python
 tests alongside the Go test/race/vet suites.
 
@@ -18,21 +22,8 @@ go run github.com/zricethezav/gitleaks/v8@v8.24.3 git . --redact --log-opts="--a
 ./dm release check
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run --no-config --enable-only=govet,staticcheck,unused ./...
 go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
-./dm dev up --config examples/quickstart/ha-config --json
-./dm --config examples/quickstart/ha-config
-./dm test --config examples/quickstart/ha-config --json
-./dm dev down --config examples/quickstart/ha-config --json
-./dm dev up --config examples/automations/ha-config --json
-./dm --config examples/automations/ha-config --json
-./dm test --config examples/automations/ha-config --json
-DENMOTHER_RUNTIME_TEST_CONFIG="$PWD/examples/automations/ha-config" go test -race -v ./internal/hatest -run '^TestNativeRuntimeTargetsAndCleanup$' -count=1
-./dm dev down --config examples/automations/ha-config --json
-npm exec --yes --package=playwright@1.61.1 -- playwright install --with-deps chromium
-./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
-DENMOTHER_TEST_STORAGE_CONFIG="$PWD/examples/dashboard/ha-config" go test ./cmd -run '^TestStorageDashboardLiveAcceptance$' -count=1
-./dm dev scenario warm --config examples/dashboard/ha-config --json
-./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --render --view details --require-running --json
-./dm dev down --config examples/dashboard/ha-config --json
+python3 -B scripts/acceptance.py browser --with-deps
+python3 -B scripts/acceptance.py runtime
 ./dm release build --version 0.1.0-rc.1
 python3 scripts/platform-acceptance.py --archive-dir dist --directory /tmp/denmother-release-acceptance
 ```

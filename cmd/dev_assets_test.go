@@ -104,6 +104,7 @@ func TestPortableAssetsParseRootKeysWithoutLosingHATags(t *testing.T) {
 		{"flow", "{frontend: !include frontend.yaml, http: {use_x_forwarded_for: true}}\n"},
 		{"merged", "<<: &defaults {frontend: !include frontend.yaml}\nhttp: {use_x_forwarded_for: true}\n"},
 		{"recorder include", "frontend: !include frontend.yaml\nhttp: {use_x_forwarded_for: true}\nrecorder: !include recorder.yaml\n"},
+		{"existing recorder", "frontend: !include frontend.yaml\nhttp: {use_x_forwarded_for: true}\nrecorder: {purge_keep_days: 2}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -137,6 +138,12 @@ func TestPortableAssetsParseRootKeysWithoutLosingHATags(t *testing.T) {
 			httpSettings, ok := rootMap["http"].(map[string]any)
 			if !ok || httpSettings["use_x_forwarded_for"] != true {
 				t.Fatalf("existing integration settings were lost: %s", data)
+			}
+			if tc.name == "existing recorder" {
+				recorder, ok := rootMap["recorder"].(map[string]any)
+				if !ok || recorder["purge_keep_days"] != 2 {
+					t.Fatalf("existing recorder settings were lost: %s", data)
+				}
 			}
 			original, err := os.ReadFile(filepath.Join(source, "configuration.yaml"))
 			if err != nil || string(original) != tc.config {

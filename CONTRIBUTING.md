@@ -18,6 +18,114 @@ a small regression fixture for an unsupported YAML shape, or an example showing
 how to test a common automation. For larger features, discuss the intended user
 workflow in an issue before building it.
 
+### Optional devcontainer
+
+With Docker running and VS Code's Dev Containers extension installed, open this
+checkout and run **Dev Containers: Reopen in Container**. The checked-in
+[configuration](.devcontainer/devcontainer.json) supplies Go matching `go.mod`,
+Python 3 with PyYAML, Bash, Git, OpenSSL, Node.js 24, npm, and Docker Compose v2. Initial setup
+downloads Go modules and builds `./dm`; it does not install Denmother into your
+host account. Rebuild the container after changing its definition. When updating
+`go.mod`'s Go version, also update the [Dockerfile](.devcontainer/Dockerfile);
+startup checks that they match. Feature versions and digests are recorded in
+[devcontainer-lock.json](.devcontainer/devcontainer-lock.json). After changing
+features, regenerate it with `npx --yes @devcontainers/cli@0.89.0 build --workspace-folder .`
+on the host and commit the updated lockfile; CI enforces it with `--frozen-lockfile`.
+
+The container uses a dedicated Docker-in-Docker daemon. This makes checkout and
+temporary-directory mounts work at their container paths and keeps HA's
+`localhost` URL reachable from `dm` and Playwright. The Docker feature requires
+a privileged development container, so use a host that permits it. Its Docker
+images and runtime volumes are stored in separate named volumes, with an initial
+download cost; the host's Docker image cache is not shared. See the
+[Docker-in-Docker documentation](https://code.visualstudio.com/remote/advancedcontainers/use-docker-kubernetes).
+Leave `DM_DEV_HOST_REPO_ROOT` unset in this environment.
+
+Inside the container, run the baseline below or run this complete smoke check:
+
+```sh
+bash .devcontainer/smoke.sh --with-deps
+```
+
+This invokes the full preflight described below, including browser installation,
+both Home Assistant versions, and a disposable Linux Homebrew install/test.
+`--with-deps` allows Playwright to install Chromium's system libraries; omit it
+once those libraries are installed. The first run downloads images and packages.
+To explore interactively, use the README quickstart commands with `./dm` in
+place of `dm`. In VS Code's **Ports** panel, forward the port printed by
+`./dm dev up` (normally 8200–8699), then open the forwarded local URL. Keep the
+port private in Codespaces.
+
+For dashboard work, install Chromium and its system libraries on demand:
+
+```sh
+bash .devcontainer/install-browser.sh
+./dm dev dashboard denmother-demo --config examples/dashboard/ha-config \
+  --ensure-dev --render --json
+./dm dev down --config examples/dashboard/ha-config --json
+```
+
+The installer reads Denmother's pinned Playwright version and uses the container's
+sudo access for browser libraries. Run it again after rebuilding the container or
+updating Playwright. CI builds this devcontainer and runs the same full preflight. Native platform and installer acceptance remain covered by the
+existing platform jobs. Generated `.devcontainer/worktrees/` files remain ignored.
+Stop interactive runtimes with `./dm dev down --config PATH` when finished; their
+state persists until explicitly reset or the nested Docker volumes are removed.
+
+### Full local preflight
+
+From the checkout root, run:
+
+```sh
+python3 -B scripts/acceptance.py preflight --with-deps
+```
+
+Required tools are Go matching `go.mod`, Git, Python 3 with PyYAML, Bash,
+Node/npm, Docker with Compose v2, and Chromium's system libraries. The
+[devcontainer](.devcontainer/devcontainer.json) supplies the tools and PyYAML.
+For native Debian/Ubuntu development, install `python3-yaml`. The optional
+`--with-deps` flag lets Playwright install browser OS libraries, which can need
+sudo. Docker must be local and able to bind-mount the checkout and temporary
+paths. Linux ARM hosts need amd64 container emulation for Homebrew acceptance.
+
+The command reports source, browser, each HA runtime version, packaging, and
+Homebrew separately. Required tests must actually run: a missing prerequisite,
+a skipped test/subtest, or a check that never ran produces a nonzero exit.
+Source checks include formatting, Go tests/race/vet, required YAML preparation
+tests, and Python tests. CI additionally performs source/history secret scans,
+static analysis, vulnerability checks, and native OS/CPU package acceptance.
+
+Both local development and CI call the same acceptance functions. The HA matrix
+lives in [acceptance.json](scripts/acceptance.json). Each version starts fresh
+quickstart, automation, and dashboard configurations with new Docker volumes;
+checks `recorder/info`, browser/storage lifecycle, an intentional missing-entity
+failure, and the warm scenario; and
+removes its temporary containers and volumes, including on failure. Existing
+example runtimes and inherited HA credentials are not used. A cleanup failure
+retains the temporary configuration and prints its location for recovery.
+
+Reports, per-check logs, and dashboard screenshots are retained under
+`artifacts/preflight/<run>/`; the command prints the exact `report.json` path.
+A passing local report covers Linux amd64 Homebrew in a disposable pinned image.
+Native macOS Homebrew and the native platform matrix remain separate CI checks.
+Homebrew acceptance leaves host Homebrew packages unchanged; `--with-deps`
+allows installation of browser system libraries on the machine running preflight.
+
+For focused acceptance after `go build -o ./dm .`:
+
+```sh
+python3 -B scripts/acceptance.py browser --with-deps
+python3 -B scripts/acceptance.py runtime                 # both HA versions
+python3 -B scripts/acceptance.py runtime --ha 2026.9.0   # one version
+```
+
+To test an already generated release, run
+`python3 -B scripts/acceptance.py homebrew --archives dist`.
+The same script supports `--native` on a disposable macOS Homebrew runner;
+that mode temporarily installs the formula into that runner's Homebrew.
+
+### Native setup and baseline checks
+
 Use the Go version in [go.mod](go.mod). Most unit tests use synthetic fixtures
 and local mock servers; Docker Compose v2 is needed for live HA acceptance.
 Install the repository's pre-commit hook once per clone:
