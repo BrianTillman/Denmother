@@ -51,6 +51,11 @@ func TestStorageDashboardLiveAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ws.Close()
+	// The frontend requests recorder metadata during startup. Without Recorder,
+	// a rejected recorder/info promise surfaces only intermittently in Chromium.
+	if _, err := ws.SendCommandContext(ctx, "recorder/info", nil); err != nil {
+		t.Fatalf("portable dashboard runtime requires recorder/info: %v", err)
+	}
 	slug := fmt.Sprintf("denmother-storage-acceptance-%d", time.Now().UnixNano())
 	data, err = ws.SendCommandContext(ctx, "lovelace/dashboards/create", map[string]interface{}{"url_path": slug, "title": "Denmother Storage Acceptance", "mode": "storage", "show_in_sidebar": false, "require_admin": true})
 	if err != nil {

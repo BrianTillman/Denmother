@@ -20,7 +20,44 @@ workflow in an issue before building it.
 
 Use the Go version in [go.mod](go.mod). Most unit tests use synthetic fixtures
 and local mock servers; Docker Compose v2 is needed for live HA acceptance.
-Build a checkout-local binary and run the baseline checks:
+Install the repository's pre-commit hook once per clone:
+
+```sh
+python3 scripts/precommit.py --install
+```
+
+Every commit then checks the exact staged files in a temporary checkout. Unstaged
+fixes cannot hide failures in the proposed commit, and your working files and
+index are left alone. The gate runs formatting, Go/Python source checks, required
+Chromium regressions, a real generated-formula install and `brew test` in a
+disposable official Homebrew container, and live dashboard/scenario acceptance
+on both HA versions in `scripts/acceptance.json`. Storage dashboard acceptance
+runs five times per version and directly verifies the frontend's `recorder/info`
+API, so missing runtime integrations fail without relying on browser timing.
+Missing tools, skipped required tests, or any failed
+check block the commit. Allow several minutes; the first run downloads images
+and browser dependencies. Failed snapshots retain their diagnostics under the
+printed temporary directory.
+
+Prerequisites are Go, Python 3 with PyYAML, Git, Bash, Node/npm, Docker with Compose v2, and
+Chromium's host libraries. Prepare the browser and run its regressions with:
+
+```sh
+python3 scripts/acceptance.py browser --with-deps
+```
+
+Install PyYAML with your OS package manager (for example, `python3-yaml` on
+Debian/Ubuntu) or in an activated Python virtual environment. CI uses PyYAML 6.0.3.
+On Linux, installing the browser's OS packages may require sudo. Docker must use
+a local daemon that can mount the checkout and temporary directories. The
+Homebrew container requires Linux amd64 support (emulation on ARM hosts); it
+does not modify your installed Homebrew packages. CI additionally tests native
+macOS Homebrew and the other supported OS/CPU combinations. Repeated browser
+runs help expose timing failures but cannot guarantee that every flake is caught.
+
+Run the same gate before staging with `python3 scripts/precommit.py --worktree`,
+or check only the staged snapshot with `python3 scripts/precommit.py`.
+For faster feedback while iterating, use the baseline checks:
 
 ```sh
 go build -o ./dm .
@@ -55,10 +92,10 @@ changes require a new contract version.
 
 ## Check the affected workflow
 
-Run focused tests while iterating, then the baseline above before submitting a
-behavior change. CI also runs race checks, static analysis, public-source checks,
+Run focused tests while iterating; the pre-commit gate is required before committing.
+CI also runs race checks, static analysis, public-source checks,
 and HA runtime and native platform tests. `./dm release check` runs the local
-Go test/race/vet and Python suites; it does not replace live HA acceptance. The
+Go test/race/vet and Python suites; it does not replace the full pre-commit gate. The
 [release guide](docs/releasing.md) lists the complete publication checks.
 
 For installer changes, Bash and Python 3.9+ are also needed; the local HTTPS

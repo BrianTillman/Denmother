@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -22,6 +22,11 @@ jobs:
         run: |
           go run github.com/zricethezav/gitleaks/v8@v8.24.3 dir . --redact
           go run github.com/zricethezav/gitleaks/v8@v8.24.3 git . --redact --log-opts="--all"
+      - name: Install runtime preparation test dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/denmother-python"
+          "$RUNNER_TEMP/denmother-python/bin/pip" install PyYAML==6.0.3
+          echo "$RUNNER_TEMP/denmother-python/bin" >> "$GITHUB_PATH"
       - run: go build -o dm .
       - run: test -z "$(gofmt -l cmd internal skills examples/embed.go scripts/embed.go evals/agent-adoption/mcpcompare main.go)"
       - run: python3 scripts/check_public_source.py
@@ -31,7 +36,7 @@ jobs:
       - run: ./dm release build --version 0.1.0-rc.1 --homebrew-repository "$RELEASE_REPOSITORY" --json
         env:
           RELEASE_REPOSITORY: ${{ github.repository }}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: packages
           path: dist/
@@ -45,42 +50,37 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: 1
       HOMEBREW_NO_INSTALL_CLEANUP: 1
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: packages
           path: dist/
       - name: Install and test the generated formula against local release archives
-        shell: bash
-        run: |
-          brew tap-new --no-git denmother/ci
-          formula="$(brew --repository denmother/ci)/Formula/denmother.rb"
-          # Only the download location changes; retain platform selection and hashes.
-          sed -E 's|https://github.com/[^/]+/[^/]+/releases/download/[^/]+/|http://127.0.0.1:8765/|g' \
-            dist/homebrew/Formula/denmother.rb > "$formula"
-          ruby -c "$formula"
-          python3 -m http.server 8765 --bind 127.0.0.1 --directory dist > "$RUNNER_TEMP/denmother-http.log" 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8765/SHA256SUMS > /dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          brew install --formula denmother/ci/denmother
-          brew test denmother/ci/denmother
-          dm version
+        run: python3 scripts/acceptance.py homebrew --native
+  runtime-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      ha: ${{ steps.versions.outputs.ha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: versions
+        run: echo "ha=$(python3 scripts/acceptance.py matrix)" >> "$GITHUB_OUTPUT"
   runtime-tests:
+    needs: runtime-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        ha: ['2026.8.3', '2026.9.0']
+        ha: ${{ fromJSON(needs.runtime-matrix.outputs.ha) }}
     env:
       DM_DEV_HA_IMAGE: ghcr.io/home-assistant/home-assistant:${{ matrix.ha }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -97,18 +97,18 @@ jobs:
       - run: ./dm test --config examples/automations/ha-config --json
       - name: Verify native area targets and service cleanup
         run: DENMOTHER_RUNTIME_TEST_CONFIG="$GITHUB_WORKSPACE/examples/automations/ha-config" go test -race -v ./internal/hatest -run '^TestNativeRuntimeTargetsAndCleanup$' -count=1
-      - name: Install dashboard browser and host libraries
-        run: npm exec --yes --package=playwright@1.61.1 -- playwright install --with-deps chromium
+      - name: Install browser and run required Chromium regressions
+        run: python3 scripts/acceptance.py browser --with-deps
       - name: Render every view of the isolated dashboard example
         run: ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
       - name: Verify saved storage dashboard lifecycle
-        run: DENMOTHER_TEST_STORAGE_CONFIG="$GITHUB_WORKSPACE/examples/dashboard/ha-config" go test ./cmd -run '^TestStorageDashboardLiveAcceptance$' -count=1
+        run: python3 scripts/acceptance.py storage --config examples/dashboard/ha-config
       - name: Apply synthetic scenario and render selected view
         run: |
           ./dm dev scenario warm --config examples/dashboard/ha-config --json
           ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --render --view details --require-running --json
       - if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-render-${{ matrix.ha }}
           path: |
@@ -132,7 +132,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -146,7 +146,7 @@ jobs:
         shell: bash
         run: python scripts/platform-acceptance.py --archive-dir dist --directory "$RUNNER_TEMP/denmother-platform"
       - if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: platform-${{ matrix.os }}
           path: ${{ runner.temp }}/denmother-platform/acceptance.json

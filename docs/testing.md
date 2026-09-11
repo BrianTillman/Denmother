@@ -257,7 +257,7 @@ beyond checking the state-machine representation. Independent teardown deletes
 the seven created records and checks that their registry entries, states, and
 area are gone. It does not restart HA or operate physical devices.
 
-CI runs this acceptance against HA **2026.9.0** and **2026.8.3**; inspect the
+CI runs this acceptance against HA **2026.9.1** and **2026.9.0**; inspect the
 result for the revision being evaluated. Native device-ID expansion is covered
 by mocked registry responses; this synthetic fixture does not create an
 integration-owned device. Physical control domains in the

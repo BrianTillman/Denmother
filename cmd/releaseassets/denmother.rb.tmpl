@@ -25,7 +25,7 @@ class Denmother < Formula
     cp_r pkgshare/"examples/quickstart", testpath/"quickstart"
     config = testpath/"quickstart/ha-config"
     system bin/"dm", "--config", config, "--no-schema"
-    (config/"configuration.yaml").write("broken: [\n")
+    File.write(config/"configuration.yaml", "broken: [\n")
     assert_match "Validation failed", shell_output("#{bin}/dm --config #{config} --lint --no-schema", 1)
   end
 end
