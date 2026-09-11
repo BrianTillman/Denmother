@@ -22,6 +22,11 @@ jobs:
         run: |
           go run github.com/zricethezav/gitleaks/v8@v8.24.3 dir . --redact
           go run github.com/zricethezav/gitleaks/v8@v8.24.3 git . --redact --log-opts="--all"
+      - name: Install runtime preparation test dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/denmother-python"
+          "$RUNNER_TEMP/denmother-python/bin/pip" install PyYAML==6.0.3
+          echo "$RUNNER_TEMP/denmother-python/bin" >> "$GITHUB_PATH"
       - run: go build -o dm .
       - run: test -z "$(gofmt -l cmd internal skills examples/embed.go scripts/embed.go evals/agent-adoption/mcpcompare main.go)"
       - run: python3 scripts/check_public_source.py

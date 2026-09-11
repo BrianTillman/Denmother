@@ -55,6 +55,8 @@ def check():
             raise RuntimeError(f"missing prerequisite: {program}; see CONTRIBUTING.md")
     run("docker", "info", "--format", "{{.ServerVersion}}")
     run("docker", "compose", "version")
+    # Preparation tests otherwise skip when only the HA container has PyYAML.
+    run("python3", "-c", "import yaml")
     go_files = git("ls-files", "*.go").splitlines()
     unformatted = subprocess.check_output(["gofmt", "-l", *go_files], cwd=ROOT).decode().strip()
     if unformatted:

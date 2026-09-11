@@ -44,7 +44,9 @@ def enable_development_api(text):
     except yaml.YAMLError as exc:
         raise RuntimeError("configuration.yaml is malformed YAML") from exc
     keys = root_keys(node)
-    missing = [key for key in ("http", "api", "websocket_api", "frontend") if key not in keys]
+    # The frontend requests recorder/info even for dashboards without history
+    # cards. Its absent-command rejection can otherwise become a startup flake.
+    missing = [key for key in ("http", "api", "websocket_api", "frontend", "recorder") if key not in keys]
     if not missing:
         return text
     for key in missing:
