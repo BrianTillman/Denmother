@@ -77,6 +77,7 @@ func runReleaseCheck(cmd *cobra.Command, args []string) error {
 		{"test", "go", []string{"test", "./..."}},
 		{"race", "go", []string{"test", "-race", "./..."}},
 		{"vet", "go", []string{"vet", "./..."}},
+		{"acceptance-runner", python, []string{"-B", "-m", "unittest", "discover", "-s", "scripts", "-p", "acceptance_test.py"}},
 		{"bootstrap", python, []string{"-B", "-m", "unittest", "discover", "-s", "scripts", "-p", "bootstrap_test.py"}},
 		{"public-source", python, []string{"-B", "-m", "unittest", "discover", "-s", "scripts", "-p", "public_source_test.py"}},
 		{"precommit", python, []string{"-B", "-m", "unittest", "discover", "-s", "scripts", "-p", "precommit_test.py"}},

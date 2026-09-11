@@ -11,4 +11,4 @@ fi
 
 go mod download
 go build -o ./dm .
-echo "Denmother is ready. Run bash .devcontainer/smoke.sh for contributor checks and the live synthetic quickstart."
+echo "Denmother is ready. Run bash .devcontainer/smoke.sh --with-deps for the full local preflight."

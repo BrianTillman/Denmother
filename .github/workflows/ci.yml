@@ -27,11 +27,8 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/denmother-python"
           "$RUNNER_TEMP/denmother-python/bin/pip" install PyYAML==6.0.3
           echo "$RUNNER_TEMP/denmother-python/bin" >> "$GITHUB_PATH"
-      - run: go build -o dm .
-      - run: test -z "$(gofmt -l cmd internal skills examples/embed.go scripts/embed.go evals/agent-adoption/mcpcompare main.go)"
-      - run: python3 scripts/check_public_source.py
+      - run: python3 -B scripts/acceptance.py source
       - run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run --no-config --enable-only=govet,staticcheck,unused ./...
-      - run: ./dm release check --json
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - run: ./dm release build --version 0.1.0-rc.1 --homebrew-repository "$RELEASE_REPOSITORY" --json
         env:
@@ -46,21 +43,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Build and start the contributor devcontainer
         id: devcontainer
         run: npx --yes @devcontainers/cli@0.89.0 up --workspace-folder . --frozen-lockfile
-      - name: Run contributor checks and live Home Assistant smoke
-        run: npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . bash .devcontainer/smoke.sh
-      - name: Install the optional browser and render the dashboard example
-        run: |
-          npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . bash .devcontainer/install-browser.sh
-          npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
-      - name: Stop the dashboard runtime
-        if: always() && steps.devcontainer.outcome == 'success'
-        run: npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . ./dm dev down --config examples/dashboard/ha-config --json
+      - name: Run the full contributor preflight
+        run: npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . bash .devcontainer/smoke.sh --with-deps
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: devcontainer-preflight
+          path: artifacts/preflight/
+          if-no-files-found: error
+          retention-days: 7
   homebrew:
     needs: source
     runs-on: macos-latest
@@ -77,7 +74,7 @@ jobs:
           name: packages
           path: dist/
       - name: Install and test the generated formula against local release archives
-        run: python3 scripts/acceptance.py homebrew --native
+        run: python3 -B scripts/acceptance.py homebrew --native
   runtime-matrix:
     runs-on: ubuntu-latest
     outputs:
@@ -96,8 +93,6 @@ jobs:
       fail-fast: false
       matrix:
         ha: ${{ fromJSON(needs.runtime-matrix.outputs.ha) }}
-    env:
-      DM_DEV_HA_IMAGE: ghcr.io/home-assistant/home-assistant:${{ matrix.ha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,42 +103,19 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: go build -o dm .
-      - run: ./dm dev up --config examples/quickstart/ha-config --json
-      - run: ./dm --config examples/quickstart/ha-config
-      - run: ./dm test --config examples/quickstart/ha-config --json
-      - run: ./dm dev up --config examples/automations/ha-config --json
-      - run: ./dm --config examples/automations/ha-config --json
-      - run: ./dm test --config examples/automations/ha-config --json
-      - name: Verify native area targets and service cleanup
-        run: DENMOTHER_RUNTIME_TEST_CONFIG="$GITHUB_WORKSPACE/examples/automations/ha-config" go test -race -v ./internal/hatest -run '^TestNativeRuntimeTargetsAndCleanup$' -count=1
       - name: Install browser and run required Chromium regressions
-        run: python3 scripts/acceptance.py browser --with-deps
-      - name: Render every view of the isolated dashboard example
-        run: ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --ensure-dev --render --require-running --json
-      - name: Verify browser navigation and error reporting
-        run: DENMOTHER_TEST_PLAYWRIGHT_DIR="$GITHUB_WORKSPACE/examples/dashboard/artifacts/dashboard-render/playwright-runner" go test ./cmd -run '^TestDashboardBrowserAcceptance$' -count=1
-      - name: Verify saved storage dashboard lifecycle
-        run: python3 scripts/acceptance.py storage --config examples/dashboard/ha-config
-      - name: Apply synthetic scenario and render selected view
-        run: |
-          ./dm dev scenario warm --config examples/dashboard/ha-config --json
-          ./dm dev dashboard denmother-demo --config examples/dashboard/ha-config --render --view details --require-running --json
+        run: python3 -B scripts/acceptance.py browser --with-deps
+      - name: Run isolated runtime acceptance
+        env:
+          HA_VERSION: ${{ matrix.ha }}
+        run: python3 -B scripts/acceptance.py runtime --ha "$HA_VERSION"
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dashboard-render-${{ matrix.ha }}
-          path: |
-            examples/dashboard/artifacts/dashboard-render/**/*.png
-            examples/dashboard/artifacts/dashboard-render/**/*.json
-            !examples/dashboard/artifacts/dashboard-render/playwright-runner/**
-          if-no-files-found: ignore
+          name: runtime-acceptance-${{ matrix.ha }}
+          path: artifacts/preflight/
+          if-no-files-found: error
           retention-days: 7
-      - if: always()
-        run: ./dm dev down --config examples/dashboard/ha-config --json
-      - if: always()
-        run: ./dm dev down --config examples/automations/ha-config --json
-      - if: always()
-        run: ./dm dev down --config examples/quickstart/ha-config --json
   platform-tests:
     needs: source
     strategy:
