@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -25,14 +26,29 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var requestsMu sync.Mutex
+	requests := make(map[string]int)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestsMu.Lock()
+		requests[r.URL.Path]++
+		requestsMu.Unlock()
 		w.Header().Set("Content-Type", "text/html")
+		if strings.HasPrefix(r.URL.Path, "/login-dashboard/") {
+			if _, err := r.Cookie("authenticated"); err != nil {
+				http.Redirect(w, r, "/auth/login?next="+r.URL.Path, http.StatusFound)
+				return
+			}
+		}
 		switch r.URL.Path {
 		case "/incomplete-onboarding/0":
 			http.Redirect(w, r, "/auth/login", http.StatusFound)
 			return
 		case "/auth/login":
-			_, _ = w.Write([]byte(`<form onsubmit="event.preventDefault();location.href='/onboarding.html'"><input name="username"><input name="password" type="password"><button>Log in</button></form>`))
+			next := r.URL.Query().Get("next")
+			if next == "" {
+				next = "/onboarding.html"
+			}
+			_, _ = fmt.Fprintf(w, `<form onsubmit="event.preventDefault();document.cookie='authenticated=yes;path=/';location.href='%s'"><input name="username"><input name="password" type="password"><button>Log in</button></form>`, next)
 			return
 		case "/onboarding.html":
 			_, _ = w.Write([]byte("<p>Finish onboarding</p>"))
@@ -45,6 +61,10 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/failed-resource"):
 			content += "<img src='/missing-resource?token=synthetic-secret' />"
+		case strings.HasSuffix(r.URL.Path, "/page-error"):
+			content += "<img src='data:,' onerror='throw new Error(\"dashboard startup failed\")' />"
+		case strings.HasSuffix(r.URL.Path, "/rejected-object"):
+			content += "<img src='data:,' onerror='Promise.reject({code:\"fixture_failure\",message:\"request failed\",token:\"synthetic-secret\"})' />"
 		case strings.HasSuffix(r.URL.Path, "/empty"):
 			content = "<p>Lots of ordinary dashboard text, but no card.</p>"
 		case strings.HasSuffix(r.URL.Path, "/nested"):
@@ -71,8 +91,13 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 		custom     []string
 		fail       bool
 		onboarding bool
+		login      bool
+		pageError  string
 	}{
 		{name: "all views", views: []string{"first", "second"}},
+		{name: "login preserves first requested view", views: []string{"first", "second"}, login: true},
+		{name: "first view page errors retained", views: []string{"page-error"}, fail: true, pageError: "dashboard startup failed"},
+		{name: "rejected object retains error code without credentials", views: []string{"rejected-object"}, fail: true, pageError: `"code":"fixture_failure"`},
 		{name: "nested shadow canvas card", views: []string{"nested"}, custom: []string{"nested-card"}},
 		{name: "delayed registration closed shadow card", views: []string{"delayed"}, custom: []string{"delayed-card"}},
 		{name: "incomplete onboarding", onboarding: true, fail: true},
@@ -83,6 +108,9 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 		{name: "missing custom registration", views: []string{"first"}, custom: []string{"missing-card"}, fail: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			requestsMu.Lock()
+			clear(requests)
+			requestsMu.Unlock()
 			dir := t.TempDir()
 			script := filepath.Join(dir, "render.cjs")
 			if err := os.WriteFile(script, []byte(dashboardRenderScript()), 0600); err != nil {
@@ -98,6 +126,9 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 			command := exec.CommandContext(ctx, "node", script)
 			resultFile := filepath.Join(dir, "result.json")
 			dashboardURL := server.URL + "/test-dashboard/0"
+			if tc.login {
+				dashboardURL = server.URL + "/login-dashboard/0"
+			}
 			if tc.onboarding {
 				dashboardURL = server.URL + "/incomplete-onboarding/0"
 			}
@@ -130,12 +161,30 @@ func TestDashboardBrowserAcceptance(t *testing.T) {
 			if (problems > 0) != tc.fail {
 				t.Fatalf("browser issues = %d, expected failure %v: %+v", problems, tc.fail, result)
 			}
+			if tc.pageError != "" && !strings.Contains(strings.Join(result.PageErrors, " "), tc.pageError) {
+				t.Fatalf("missing page error %q: %+v", tc.pageError, result)
+			}
 			for i, view := range result.Views {
 				if !strings.HasSuffix(view.URL, "/"+tc.views[i]) {
 					t.Fatalf("wrong view URL: %s", view.URL)
 				}
 				if _, err := os.Stat(view.Screenshot); err != nil {
 					t.Fatalf("view screenshot: %v", err)
+				}
+				path := "/test-dashboard/" + tc.views[i]
+				wantRequests := 1
+				if tc.login {
+					path = "/login-dashboard/" + tc.views[i]
+					if i == 0 {
+						wantRequests++ // Unauthenticated request redirects to login.
+					}
+				}
+				requestsMu.Lock()
+				gotRequests := requests[path]
+				bootstrapRequests := requests["/test-dashboard/0"] + requests["/login-dashboard/0"]
+				requestsMu.Unlock()
+				if gotRequests != wantRequests || bootstrapRequests != 0 {
+					t.Fatalf("view %s: %d requests (want %d), unrequested bootstrap: %d", path, gotRequests, wantRequests, bootstrapRequests)
 				}
 			}
 			if !tc.fail && result.CardCount < len(tc.views) {

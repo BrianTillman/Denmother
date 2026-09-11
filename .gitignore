@@ -10,6 +10,7 @@ coverage.out
 # Local tooling and private Home Assistant data
 /.*
 !/.github/
+!/.githooks/
 !/.gitignore
 !/.denmother.yaml
 secrets.yaml

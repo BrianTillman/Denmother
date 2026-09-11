@@ -16,9 +16,9 @@ published; start with [source installation](installing.md#install-from-source).
 | Browser dashboard rendering | Node.js/npm, Playwright/Chromium prepared by `dm`, and host browser libraries |
 | Native archive acceptance script | Python 3.12+ for safe archive extraction |
 
-The portable runtime defaults to HA **2026.9.0** and nginx **1.29.8-alpine**.
-The CI configuration in `.github/workflows/ci.yml` includes HA **2026.8.3** and
-**2026.9.0** runtime jobs and the platform jobs below. Check their results for
+The portable runtime defaults to HA **2026.9.1** and nginx **1.29.8-alpine**.
+The CI configuration in `.github/workflows/ci.yml` includes HA **2026.9.0** and
+**2026.9.1** runtime jobs and the platform jobs below. Check their results for
 the revision you intend to use.
 
 ## Choose a check

@@ -103,12 +103,14 @@ func TestPortableAssetsParseRootKeysWithoutLosingHATags(t *testing.T) {
 		{"indented", "  frontend: !include frontend.yaml\n  http: {use_x_forwarded_for: true}\n"},
 		{"flow", "{frontend: !include frontend.yaml, http: {use_x_forwarded_for: true}}\n"},
 		{"merged", "<<: &defaults {frontend: !include frontend.yaml}\nhttp: {use_x_forwarded_for: true}\n"},
+		{"recorder include", "frontend: !include frontend.yaml\nhttp: {use_x_forwarded_for: true}\nrecorder: !include recorder.yaml\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
 			source, runtime := filepath.Join(root, "source"), filepath.Join(root, "runtime")
 			writeTestFile(t, filepath.Join(source, "configuration.yaml"), tc.config)
 			writeTestFile(t, filepath.Join(source, "frontend.yaml"), "themes: {}\n")
+			writeTestFile(t, filepath.Join(source, "recorder.yaml"), "purge_keep_days: 1\n")
 			command := exec.Command(python, "-c", `import runpy,sys; runpy.run_path(sys.argv[1])["prepare"](sys.argv[2], sys.argv[3])`, script, source, runtime)
 			if output, err := command.CombinedOutput(); err != nil {
 				t.Fatalf("prepare: %v: %s", err, output)
@@ -121,13 +123,16 @@ func TestPortableAssetsParseRootKeysWithoutLosingHATags(t *testing.T) {
 			if err := yaml.Unmarshal(data, &rootMap); err != nil {
 				t.Fatalf("invalid or duplicate runtime YAML: %v: %s", err, data)
 			}
-			for _, key := range []string{"http", "api", "websocket_api", "frontend"} {
+			for _, key := range []string{"http", "api", "websocket_api", "frontend", "recorder"} {
 				if _, ok := rootMap[key]; !ok {
 					t.Errorf("runtime lacks %s: %s", key, data)
 				}
 			}
 			if rootMap["frontend"] != "frontend.yaml" || !strings.Contains(string(data), "!include") {
 				t.Fatalf("existing HA include tag was lost: %s", data)
+			}
+			if tc.name == "recorder include" && rootMap["recorder"] != "recorder.yaml" {
+				t.Fatalf("existing Recorder configuration was lost: %s", data)
 			}
 			httpSettings, ok := rootMap["http"].(map[string]any)
 			if !ok || httpSettings["use_x_forwarded_for"] != true {
