@@ -33,7 +33,7 @@ jobs:
       - run: ./dm release build --version 0.1.0-rc.1 --homebrew-repository "$RELEASE_REPOSITORY" --json
         env:
           RELEASE_REPOSITORY: ${{ github.repository }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages
           path: dist/
@@ -52,7 +52,7 @@ jobs:
       - name: Run the full contributor preflight
         run: npx --yes @devcontainers/cli@0.89.0 exec --workspace-folder . bash .devcontainer/smoke.sh --with-deps
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: devcontainer-preflight
           path: artifacts/preflight/
@@ -110,7 +110,7 @@ jobs:
           HA_VERSION: ${{ matrix.ha }}
         run: python3 -B scripts/acceptance.py runtime --ha "$HA_VERSION"
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-acceptance-${{ matrix.ha }}
           path: artifacts/preflight/
@@ -139,7 +139,7 @@ jobs:
         shell: bash
         run: python scripts/platform-acceptance.py --archive-dir dist --directory "$RUNNER_TEMP/denmother-platform"
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: platform-${{ matrix.os }}
           path: ${{ runner.temp }}/denmother-platform/acceptance.json
