@@ -156,3 +156,21 @@ are preserved. If a home configuration already exists, the starter is placed in
 For compatibility testing, set `DM_DEV_HA_IMAGE` to an explicit Docker image
 reference before `dev up`. The default remains pinned. Use separate project
 copies for different HA versions so an older HA never opens newer runtime storage.
+
+## Local runtime diagnostics
+
+`dm dev status --json` reports frontend reachability separately from authenticated
+HA readiness. Reachability uses the public manifest endpoint; readiness reads the
+selected worktree container's token and requires a valid HA configuration response
+in `RUNNING` state, outside safe/recovery mode. Missing credentials or incomplete
+startup remain visible instead of treating an unauthenticated HTTP 401 as healthy.
+
+The `ha_image` result compares the desired image from resolved Compose configuration
+with the selected running container's reference and image ID. A stale image or a
+moved tag is drift; an unavailable identity comparison is incomplete evidence.
+Run `dm dev up` to recreate that local runtime with the desired image.
+
+`dm dev doctor --json` includes the same readiness/image check and detects generic
+Home Assistant automation, service and core ERROR records alongside specific
+startup failures. Repeated occurrences are counted, with at most eight distinct
+sample lines per category. A line matching a specific rule is counted there once.

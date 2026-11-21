@@ -84,6 +84,11 @@ type devStatusSummary struct {
 	RunningServices   []string        `json:"running_services,omitempty"`
 	MissingServices   []string        `json:"missing_services,omitempty"`
 	HAReachable       bool            `json:"ha_reachable"`
+	HAAuthenticated   bool            `json:"ha_authenticated"`
+	HARunning         bool            `json:"ha_running"`
+	HAReady           bool            `json:"ha_ready"`
+	HAReadinessError  string          `json:"ha_readiness_error,omitempty"`
+	HAImage           devImageStatus  `json:"ha_image"`
 }
 
 func init() {
@@ -289,20 +294,7 @@ func runDevStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	summary := inspectDevStatus(env)
-	status := operator.StatusSuccess
-	stepSummary := fmt.Sprintf("%s is running at %s", env.ProjectName, env.HAURL)
-	if !summary.HAReachable || len(summary.MissingServices) > 0 {
-		status = operator.StatusPartial
-		stepSummary = fmt.Sprintf("%s is not ready", env.ProjectName)
-	}
-	if !summary.ComposeFileExists {
-		status = operator.StatusWarning
-		stepSummary = fmt.Sprintf("%s has not been prepared", env.ProjectName)
-	}
-	if !summary.DockerAvailable && summary.ComposeFileExists {
-		status = operator.StatusWarning
-		stepSummary = "docker compose status is unavailable"
-	}
+	status, stepSummary := devStatusOutcome(summary)
 
 	step := operator.Step{
 		ID:      "dev-status",
@@ -417,6 +409,12 @@ func inspectDevStatus(env *devEnvironment) devStatusSummary {
 			summary.MissingServices = append(summary.MissingServices, service)
 		}
 	}
+	if running["homeassistant"] {
+		ctx, cancel := context.WithTimeout(commandContext(), 10*time.Second)
+		defer cancel()
+		summary.HAImage = inspectDevImage(ctx, env, runDevDocker)
+		summary.HAAuthenticated, summary.HARunning, summary.HAReady, summary.HAReadinessError = inspectDevReadiness(ctx, env, runDevDocker)
+	}
 	return summary
 }
 
@@ -444,12 +442,16 @@ func dockerComposeRunningServices(env *devEnvironment) ([]string, error) {
 
 func devURLReachable(url string) bool {
 	client := hahttp.NewClient(2 * time.Second)
-	resp, err := client.Get(strings.TrimSuffix(url, "/") + "/api/")
+	req, err := http.NewRequestWithContext(commandContext(), http.MethodGet, strings.TrimSuffix(url, "/")+"/manifest.json", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized
+	return resp.StatusCode == http.StatusOK
 }
 
 func repoRoot() (string, error) {

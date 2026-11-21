@@ -1,6 +1,7 @@
 package haconfig
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -413,6 +414,13 @@ func TestExplicitDevURLResolvesSelectedRuntimeTokenFile(t *testing.T) {
 	}))
 	defer unrelated.Close()
 	selected := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/manifest.json" {
+			if r.Header.Get("Authorization") != "" {
+				t.Error("manifest probe must not carry credentials")
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		if r.URL.Path != "/api/" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -468,5 +476,22 @@ func TestExplicitDevURLResolvesSelectedRuntimeTokenFile(t *testing.T) {
 	}
 	if unrelatedRequests.Load() != 0 {
 		t.Fatalf("probed an unrelated runtime %d times", unrelatedRequests.Load())
+	}
+}
+
+func TestReachabilityUsesHarmlessManifestAndRejectsHTTPErrors(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusMovedPermanently, http.StatusUnauthorized, http.StatusInternalServerError} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/manifest.json" || r.Header.Get("Authorization") != "" {
+					t.Errorf("unsafe reachability probe: %s", r.URL.Path)
+				}
+				w.WriteHeader(status)
+			}))
+			defer server.Close()
+			if got := isHAReachableContext(context.Background(), server.URL); got != (status == http.StatusOK) {
+				t.Fatalf("HTTP %d reachable=%v", status, got)
+			}
+		})
 	}
 }
