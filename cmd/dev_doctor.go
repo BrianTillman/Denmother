@@ -59,6 +59,17 @@ func runDevDoctor(cmd *cobra.Command, args []string) error {
 		return rt.Complete(operator.StatusFailure, "local dev doctor could not connect")
 	}
 
+	env, statusErr := currentDevEnvironment()
+	if statusErr != nil {
+		overall = operator.MergeStatus(overall, operator.StatusFailure)
+		rt.AddStep(operator.Step{ID: "dev-readiness", Title: "Verify local runtime readiness and image", Status: operator.StatusFailure, Summary: statusErr.Error()})
+	} else {
+		health := inspectDevStatus(env)
+		status, summary := devStatusOutcome(health)
+		overall = operator.MergeStatus(overall, status)
+		rt.AddStep(operator.Step{ID: "dev-readiness", Title: "Verify local runtime readiness and image", Status: status, Summary: summary, Details: map[string]any{"status": health}})
+	}
+
 	dashboardRefs, dashboardErr := allDashboardEntityRefs()
 	if dashboardErr != nil {
 		overall = operator.MergeStatus(overall, operator.StatusFailure)
@@ -243,10 +254,10 @@ func devLogDoctorStep(tail int) operator.Step {
 	}
 	findings := collectDevLogFindings(string(output))
 	status := operator.StatusSuccess
-	summary := "recent Home Assistant logs contain no known local-dev blockers"
+	summary := "recent Home Assistant logs contain no detected local-dev errors or blockers"
 	if len(findings) > 0 {
 		status = operator.StatusFailure
-		summary = fmt.Sprintf("recent Home Assistant logs contain %d known blocker type(s)", len(findings))
+		summary = fmt.Sprintf("recent Home Assistant logs contain %d error/blocker type(s)", len(findings))
 	}
 	return operator.Step{
 		ID:      "runtime-logs",
@@ -271,6 +282,8 @@ func collectDevLogFindings(logs string) []devLogFinding {
 		{"setup-failed", regexp.MustCompile(`(?i)(setup failed|failed to set up|error setting up entry|unable to prepare setup)`)},
 		{"traceback", regexp.MustCompile(`(?i)traceback \(most recent call last\)`)},
 		{"custom-component-error", regexp.MustCompile(`(?i)(custom_components|mock_entities).*(error|exception|failed)`)},
+		{"automation-service-error", regexp.MustCompile(`(?i)(?:^|\s)(?:ERROR|CRITICAL|FATAL)\s+(?:\([^)]*\)\s+)?\[homeassistant\.(?:components\.automation|helpers\.(?:script|service))(?:[.\]])`)},
+		{"home-assistant-error", regexp.MustCompile(`(?i)(?:^|\s)(?:ERROR|CRITICAL|FATAL)\s+(?:\([^)]*\)\s+)?\[homeassistant(?:[.\]])`)},
 	}
 	counts := map[string]int{}
 	samples := map[string][]string{}
@@ -284,9 +297,18 @@ func collectDevLogFindings(logs string) []devLogFinding {
 				continue
 			}
 			counts[pattern.id]++
-			if len(samples[pattern.id]) < 8 {
+			seen := false
+			for _, sample := range samples[pattern.id] {
+				if sample == line {
+					seen = true
+					break
+				}
+			}
+			if !seen && len(samples[pattern.id]) < 8 {
 				samples[pattern.id] = append(samples[pattern.id], line)
 			}
+			// Specific findings take precedence over the generic ERROR fallback.
+			break
 		}
 	}
 	var findings []devLogFinding

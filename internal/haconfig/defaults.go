@@ -748,7 +748,7 @@ func isLocalURL(raw string) bool {
 	}
 }
 
-// isHAReachableContext checks for an HA API response within two seconds or
+// isHAReachableContext checks the harmless frontend manifest within two seconds or
 // the caller deadline, whichever comes first.
 func isHAReachableContext(ctx context.Context, url string) bool {
 	if ValidateURL(url) != nil {
@@ -756,7 +756,7 @@ func isHAReachableContext(ctx context.Context, url string) bool {
 	}
 	client := hahttp.NewClient(2 * time.Second)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(url, "/")+"/api/", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(url, "/")+"/manifest.json", nil)
 	if err != nil {
 		return false
 	}
@@ -766,8 +766,8 @@ func isHAReachableContext(ctx context.Context, url string) bool {
 	}
 	defer resp.Body.Close()
 
-	// HA returns 401 without auth, but that means it's running
-	return ctx.Err() == nil && (resp.StatusCode == 200 || resp.StatusCode == 401)
+	// Authentication and integration readiness are separate checks.
+	return ctx.Err() == nil && resp.StatusCode == http.StatusOK
 }
 
 func isHAAuthenticatedContext(ctx context.Context, url, token string) bool {
