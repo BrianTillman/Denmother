@@ -8,7 +8,7 @@ published; start with [source installation](installing.md#install-from-source).
 
 | Workflow | Requirements |
 | --- | --- |
-| Source build | Go 1.26.8, pinned in [go.mod](../go.mod) |
+| Source build | Go 1.26.11, pinned in [go.mod](../go.mod) |
 | Unix setup bootstrap | Linux/macOS amd64 or arm64; Bash and Python 3.9+ |
 | Offline checks and project initialization | Native `dm` binary and local files |
 | Diff review and test planning | Git |
